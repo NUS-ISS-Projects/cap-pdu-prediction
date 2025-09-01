@@ -78,18 +78,16 @@ def predict():
     """
     API endpoint to receive PDU JSON data and return predictions.
     """
-    if not request.is_json:
-        return jsonify({"error": "Request must be JSON"}), 400
-
     try:
+        # Try to get JSON data, this will raise an exception for invalid JSON
         data = request.get_json(force=True)
         if data is None:
-            return jsonify({"error": "Invalid JSON format"}), 400
+            return jsonify({"error": "Request must be JSON"}), 400
         prediction_result = predict_pdu_data(data)
         if "error" in prediction_result:
             return jsonify(prediction_result), 400
         return jsonify(prediction_result)
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, UnicodeDecodeError) as e:
         return jsonify({"error": "Invalid JSON format"}), 400
     except Exception as e:
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
