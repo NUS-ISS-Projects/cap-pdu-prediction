@@ -66,6 +66,13 @@ def predict_pdu_data(data):
         "predicted_values": predicted_y.tolist()
     }
 
+@app.route('/health', methods=['GET'])
+def health():
+    """
+    Health check endpoint for Kubernetes and Docker.
+    """
+    return jsonify({"status": "healthy", "service": "cap-pdu-prediction"}), 200
+
 @app.route('/predict', methods=['POST'])
 def predict():
     """
