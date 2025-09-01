@@ -90,6 +90,10 @@ def predict():
     except (ValueError, TypeError, UnicodeDecodeError) as e:
         return jsonify({"error": "Invalid JSON format"}), 400
     except Exception as e:
+        # Check if it's a JSON-related error
+        error_msg = str(e).lower()
+        if any(keyword in error_msg for keyword in ['json', 'decode', 'parse', 'invalid']):
+            return jsonify({"error": "Invalid JSON format"}), 400
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
