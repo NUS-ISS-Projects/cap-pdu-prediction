@@ -65,8 +65,9 @@ def test_predict_endpoint_valid_data(client):
 
 def test_predict_endpoint_invalid_json(client):
     """Test the predict endpoint with invalid JSON."""
+    # Test with malformed JSON that will trigger JSON decode error
     response = client.post('/predict', 
-                          data='invalid json',
+                          data='{"timeUnit": "day", "buckets": [}',  # Missing closing bracket
                           content_type='application/json')
     assert response.status_code == 400
     data = json.loads(response.data)
