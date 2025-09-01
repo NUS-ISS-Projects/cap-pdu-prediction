@@ -82,11 +82,15 @@ def predict():
         return jsonify({"error": "Request must be JSON"}), 400
 
     try:
-        data = request.get_json()
+        data = request.get_json(force=True)
+        if data is None:
+            return jsonify({"error": "Invalid JSON format"}), 400
         prediction_result = predict_pdu_data(data)
         if "error" in prediction_result:
             return jsonify(prediction_result), 400
         return jsonify(prediction_result)
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": "Invalid JSON format"}), 400
     except Exception as e:
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
