@@ -1,0 +1,103 @@
+name: Build Python Flask App and Perform Unit Tests, Code Coverage and Static Analysis
+
+on:
+  push:
+
+env:
+  IMAGE_NAME: ghcr.io/nus-iss-projects/cap-pdu-prediction/cap-pdu-prediction
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      repository-projects: write
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov flake8
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Test with pytest
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=html
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4.6.1
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+  setup-build-deploy:
+    name: Setup, Build, and Store Artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4.6.1
+        with:
+          name: cap-pdu-prediction-app
+          path: |
+            predict_v5.py
+            requirements.txt
+            Dockerfile
+
+  build-docker-image:
+    name: Dockerize and push to GitHub Container Registry (Multi-Arch)
+    needs: setup-build-deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Set build date as image tag
+        run: echo "IMAGE_TAG=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+
+      - name: Retrieve saved artifacts
+        uses: actions/download-artifact@v4.1.9
+        with:
+          name: cap-pdu-prediction-app
+          path: .
+      
+      - name: List files in current directory
+        run: ls -la
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
+      - name: Build and push Multi-Arch Docker image
+        run: |
+          docker buildx build \
+            --platform=linux/amd64,linux/arm64 \
+            --tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            --tag ${{ env.IMAGE_NAME }}:latest \
+            --push .

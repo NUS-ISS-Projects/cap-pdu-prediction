@@ -66,21 +66,36 @@ def predict_pdu_data(data):
         "predicted_values": predicted_y.tolist()
     }
 
+@app.route('/health', methods=['GET'])
+@app.route('/api/prediction/health', methods=['GET'])
+def health():
+    """
+    Health check endpoint for Kubernetes and Docker.
+    """
+    return jsonify({"status": "healthy", "service": "cap-pdu-prediction"}), 200
+
 @app.route('/predict', methods=['POST'])
+@app.route('/api/prediction', methods=['POST'])
 def predict():
     """
     API endpoint to receive PDU JSON data and return predictions.
     """
-    if not request.is_json:
-        return jsonify({"error": "Request must be JSON"}), 400
-
     try:
-        data = request.get_json()
+        # Try to get JSON data, this will raise an exception for invalid JSON
+        data = request.get_json(force=True)
+        if data is None:
+            return jsonify({"error": "Request must be JSON"}), 400
         prediction_result = predict_pdu_data(data)
         if "error" in prediction_result:
             return jsonify(prediction_result), 400
         return jsonify(prediction_result)
+    except (ValueError, TypeError, UnicodeDecodeError) as e:
+        return jsonify({"error": "Invalid JSON format"}), 400
     except Exception as e:
+        # Check if it's a JSON-related error
+        error_msg = str(e).lower()
+        if any(keyword in error_msg for keyword in ['json', 'decode', 'parse', 'invalid']):
+            return jsonify({"error": "Invalid JSON format"}), 400
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
