@@ -15,7 +15,6 @@ print("RAG system initialization completed.")
 
 def get_rag_system():
     """Get the pre-initialized RAG system instance."""
-    global rag_system
     return rag_system
 
 def predict_pdu_data(data):
