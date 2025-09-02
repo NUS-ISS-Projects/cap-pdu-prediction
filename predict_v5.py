@@ -7,17 +7,15 @@ from rag_system import DISDataRAGSystem
 
 app = Flask(__name__)
 
-# Initialize RAG system (lazy loading)
-rag_system = None
+# Initialize RAG system during startup
+print("Initializing RAG system during application startup...")
+base_url = os.getenv('DIS_BASE_URL', 'http://kong-gateway-service.default.svc.cluster.local:8000')
+rag_system = DISDataRAGSystem(base_url=base_url)
+print("RAG system initialization completed.")
 
 def get_rag_system():
-    """Get or initialize the RAG system instance."""
+    """Get the pre-initialized RAG system instance."""
     global rag_system
-    if rag_system is None:
-        # Use environment variable for base URL, default to Kong Gateway for K8s
-        # For local development, set DIS_BASE_URL=http://localhost:8080
-        base_url = os.getenv('DIS_BASE_URL', 'http://kong-gateway.default.svc.cluster.local:8000')
-        rag_system = DISDataRAGSystem(base_url=base_url)
     return rag_system
 
 def predict_pdu_data(data):
