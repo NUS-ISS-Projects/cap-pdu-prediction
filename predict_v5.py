@@ -2,8 +2,23 @@ import json
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from flask import Flask, request, jsonify
+import os
+from rag_system import DISDataRAGSystem
 
 app = Flask(__name__)
+
+# Initialize RAG system (lazy loading)
+rag_system = None
+
+def get_rag_system():
+    """Get or initialize the RAG system instance."""
+    global rag_system
+    if rag_system is None:
+        # Use environment variable for base URL, default to Kong Gateway for K8s
+        # For local development, set DIS_BASE_URL=http://localhost:8080
+        base_url = os.getenv('DIS_BASE_URL', 'http://kong-gateway.default.svc.cluster.local:8000')
+        rag_system = DISDataRAGSystem(base_url=base_url)
+    return rag_system
 
 def predict_pdu_data(data):
     """
@@ -73,6 +88,49 @@ def health():
     Health check endpoint for Kubernetes and Docker.
     """
     return jsonify({"status": "healthy", "service": "cap-pdu-prediction"}), 200
+
+@app.route('/chat', methods=['POST'])
+@app.route('/api/prediction/chat', methods=['POST'])
+def chat():
+    """
+    Chat endpoint for natural language queries about DIS platform data.
+    """
+    try:
+        data = request.get_json(force=True)
+        if data is None:
+            return jsonify({"error": "Request must be JSON"}), 400
+        
+        query = data.get('query', '').strip()
+        if not query:
+            return jsonify({"error": "Query field is required"}), 400
+        
+        # Get RAG system and process query
+        rag = get_rag_system()
+        result = rag.query(query)
+        
+        return jsonify({
+            "query": query,
+            "answer": result["answer"],
+            "context": result["context"],
+            "data_sources": result["data_sources"],
+            "timestamp": result["cache_timestamp"]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+@app.route('/chat/status', methods=['GET'])
+@app.route('/api/prediction/chat/status', methods=['GET'])
+def chat_status():
+    """
+    Get the status of the RAG system and data availability.
+    """
+    try:
+        rag = get_rag_system()
+        status = rag.get_system_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 @app.route('/predict', methods=['POST'])
 @app.route('/api/prediction', methods=['POST'])
