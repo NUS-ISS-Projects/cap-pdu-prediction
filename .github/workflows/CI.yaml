@@ -22,6 +22,18 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local/lib/python3.11/site-packages
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -45,12 +57,31 @@ jobs:
   setup-build-deploy:
     name: Setup, Build, and Store Artifact
     runs-on: ubuntu-latest
+    env:
+      PIP_CACHE_DIR: ~/.cache/pip
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONUNBUFFERED: 1
     steps:
       - uses: actions/checkout@v3
+      
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local/lib/python3.11/site-packages
+          key: ${{ runner.os }}-pip-build-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-build-
+            ${{ runner.os }}-pip-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -61,6 +92,7 @@ jobs:
           name: cap-pdu-prediction-app
           path: |
             predict_v5.py
+            rag_system.py
             requirements.txt
             Dockerfile
 
@@ -94,10 +126,14 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      - name: Build and push Multi-Arch Docker image
+      - name: Build and push Multi-Arch Docker image with caching
         run: |
           docker buildx build \
             --platform=linux/amd64,linux/arm64 \
+            --cache-from=type=gha \
+            --cache-to=type=gha,mode=max \
+            --cache-from=type=registry,ref=${{ env.IMAGE_NAME }}:cache \
+            --cache-to=type=registry,ref=${{ env.IMAGE_NAME }}:cache,mode=max \
             --tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
             --tag ${{ env.IMAGE_NAME }}:latest \
             --push .
