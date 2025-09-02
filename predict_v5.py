@@ -93,6 +93,17 @@ def chat():
     Chat endpoint for natural language queries about DIS platform data.
     """
     try:
+        # Extract JWT token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        jwt_token = None
+        if auth_header and auth_header.startswith('Bearer '):
+            jwt_token = auth_header[7:]  # Remove 'Bearer ' prefix
+        
+        # Get RAG system and set JWT token for authentication
+        rag = get_rag_system()
+        if jwt_token:
+            rag.set_jwt_token(jwt_token)
+        
         data = request.get_json(force=True)
         if data is None:
             return jsonify({"error": "Request must be JSON"}), 400
@@ -101,8 +112,6 @@ def chat():
         if not query:
             return jsonify({"error": "Query field is required"}), 400
         
-        # Get RAG system and process query
-        rag = get_rag_system()
         result = rag.query(query)
         
         return jsonify({
@@ -123,6 +132,13 @@ def chat_status():
     Get the status of the RAG system and data availability.
     """
     try:
+        # Extract JWT token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            jwt_token = auth_header[7:]  # Remove 'Bearer ' prefix
+            rag = get_rag_system()
+            rag.set_jwt_token(jwt_token)
+        
         rag = get_rag_system()
         status = rag.get_system_status()
         return jsonify(status)
