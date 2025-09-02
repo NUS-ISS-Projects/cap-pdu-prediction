@@ -1,4 +1,4 @@
-name: Build Python Flask App and Perform Unit Tests, Code Coverage and Static Analysis
+name: Build Python Flask App and Perform Unit Tests, Code Coverage and Static Analysis for PDU Prediction
 
 on:
   push:
