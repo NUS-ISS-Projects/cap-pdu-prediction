@@ -2,8 +2,20 @@ import json
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from flask import Flask, request, jsonify
+import os
+from rag_system import DISDataRAGSystem
 
 app = Flask(__name__)
+
+# Initialize RAG system during startup
+print("Initializing RAG system during application startup...")
+base_url = os.getenv('DIS_BASE_URL', 'http://kong-gateway-service.default.svc.cluster.local:8000')
+rag_system = DISDataRAGSystem(base_url=base_url)
+print("RAG system initialization completed.")
+
+def get_rag_system():
+    """Get the pre-initialized RAG system instance."""
+    return rag_system
 
 def predict_pdu_data(data):
     """
@@ -73,6 +85,65 @@ def health():
     Health check endpoint for Kubernetes and Docker.
     """
     return jsonify({"status": "healthy", "service": "cap-pdu-prediction"}), 200
+
+@app.route('/chat', methods=['POST'])
+@app.route('/api/prediction/chat', methods=['POST'])
+def chat():
+    """
+    Chat endpoint for natural language queries about DIS platform data.
+    """
+    try:
+        # Extract JWT token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        jwt_token = None
+        if auth_header and auth_header.startswith('Bearer '):
+            jwt_token = auth_header[7:]  # Remove 'Bearer ' prefix
+        
+        # Get RAG system and set JWT token for authentication
+        rag = get_rag_system()
+        if jwt_token:
+            rag.set_jwt_token(jwt_token)
+        
+        data = request.get_json(force=True)
+        if data is None:
+            return jsonify({"error": "Request must be JSON"}), 400
+        
+        query = data.get('query', '').strip()
+        if not query:
+            return jsonify({"error": "Query field is required"}), 400
+        
+        result = rag.query(query)
+        
+        return jsonify({
+            "query": query,
+            "answer": result["answer"],
+            "context": result["context"],
+            "data_sources": result["data_sources"],
+            "timestamp": result["cache_timestamp"]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+@app.route('/chat/status', methods=['GET'])
+@app.route('/api/prediction/chat/status', methods=['GET'])
+def chat_status():
+    """
+    Get the status of the RAG system and data availability.
+    """
+    try:
+        # Extract JWT token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            jwt_token = auth_header[7:]  # Remove 'Bearer ' prefix
+            rag = get_rag_system()
+            rag.set_jwt_token(jwt_token)
+        
+        rag = get_rag_system()
+        status = rag.get_system_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 @app.route('/predict', methods=['POST'])
 @app.route('/api/prediction', methods=['POST'])
