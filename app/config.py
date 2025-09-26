@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    DIS_BASE_URL = os.getenv('DIS_BASE_URL', 'http://data-acquisition-service.default.svc.cluster.local:8080')
+    DIS_BASE_URL = os.getenv('DIS_BASE_URL', 'http://kong-gateway-service.default.svc.cluster.local:8000"')
     FLASK_ENV = os.getenv('FLASK_ENV', 'production')
 
     TRANSFORMERS_CACHE = '/app/.cache/transformers'
