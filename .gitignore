@@ -154,3 +154,5 @@ Thumbs.db
 
 # Log files
 *.log
+
+.claude
